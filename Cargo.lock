@@ -188,6 +188,8 @@ name = "codr"
 version = "0.1.0"
 dependencies = [
  "openai",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

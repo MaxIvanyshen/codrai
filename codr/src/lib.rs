@@ -17,29 +17,22 @@ impl Codr {
         Codr {
             openai_client: openai::Client::new(base_url, api_key, model),
             messages: vec![
-                openai::Message {
-                    role: openai::Role::System,
-                    content: system_prompt,
-                },
+                openai::simple_message(system_prompt, openai::Role::System),
             ],
         }
     }
 
     pub async fn message(&mut self, message: String) -> Result<Vec<String>, Box<dyn std::error::Error>> {
-        self.messages.push(openai::Message {
-            role: openai::Role::User,
-            content: message,
-        });
+        self.messages.push(openai::simple_message(message, openai::Role::User));
         let mut result = vec![];
-        match self.openai_client.chat_completion(&self.messages).await {
+        match self.openai_client.chat_completion(&self.messages, None).await {
             Ok(response) => {
                 for choice in response.choices {
                     result.push(choice.message.content);
                 }
-                self.messages.push(openai::Message {
-                    role: openai::Role::Assistant,
-                    content: result.join("\n"),
-                });
+                self.messages.push(
+                    openai::simple_message(result.join("\n"), openai::Role::Assistant)
+                );
                 Ok(result)
             }
             Err(e) => {
@@ -47,6 +40,5 @@ impl Codr {
                 Err(e)
             }
         }
-
     }
 }
