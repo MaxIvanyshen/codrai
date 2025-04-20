@@ -1,7 +1,7 @@
 use reqwest;
 use serde::{Deserialize, Serialize};
 use serde_json;
-use std::io::{ErrorKind};
+use std::io::{Error, ErrorKind};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub enum Role {
@@ -15,7 +15,7 @@ pub enum Role {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Message {
-    pub role: String, // Changed from Role enum to String for simplicity
+    pub role: Role,
     pub content: String,
 }
 
@@ -49,7 +49,7 @@ impl Client {
         }
     }
 
-    pub async fn chat_completion(&self, messages: Vec<Message>) -> Result<ChatCompletion, Box<dyn std::error::Error>> {
+    pub async fn chat_completion(&self, messages: &Vec<Message>) -> Result<ChatCompletion, Box<dyn std::error::Error>> {
         let url = format!("{}/chat/completions", self.base_url);
         
         let body = serde_json::json!({
@@ -60,7 +60,7 @@ impl Client {
         let response = self.http_client
             .post(&url)
             .header("Authorization", format!("Bearer {}", self.api_key))
-            .json(&body)  // This serializes the body to JSON
+            .json(&body)
             .send()
             .await?;
 
@@ -70,10 +70,11 @@ impl Client {
         } else {
             let status = response.status();
             let error_message = response.text().await?;
-            Err(Box::new(std::io::Error::new(
+            Err(Box::new(Error::new(
                 ErrorKind::Other,
                 format!("Error {}: {}", status, error_message),
             )))
         }
     }
 }
+

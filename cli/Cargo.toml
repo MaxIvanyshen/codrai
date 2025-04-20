@@ -4,7 +4,8 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-openai = { path = "../openai" }
+codr = { path = "../codr" }
 tokio = { version = "1", features = ["full"] }
 termimad = "0.20"
+clap = { version = "4.5.37", features = ["derive"] }
 
