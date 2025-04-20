@@ -7,9 +7,9 @@ pub struct Codr {
 
 impl Codr {
     pub fn new() -> Self {
-        let base_url = env::var("CODR_BASE_URL").unwrap_or_else(|_| "https://api.openai.com/v1".to_string());
+        let base_url = env::var("CODR_BASE_URL").expect("CODR_BASE_URL must be set");
         let api_key = env::var("CODR_API_KEY").expect("CODR_API_KEY must be set");
-        let model = env::var("CODR_MODEL").unwrap_or_else(|_| "gpt-3.5-turbo".to_string());
+        let model = env::var("CODR_MODEL").expect("CODR_MODEL must be set");
 
         let system_prompt = fs::read_to_string("./system_prompt.md")
             .expect("Unable to read system prompt file");
