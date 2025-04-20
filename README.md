@@ -1,0 +1,2 @@
+# codrai
+AI Coding assistant 
