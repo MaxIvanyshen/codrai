@@ -1,4 +1,5 @@
 use std::{env, fs};
+use openai::ModelClient;
 
 pub struct Codr {
     openai_client: openai::Client,
