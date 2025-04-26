@@ -1,8 +1,7 @@
 use std::{env, fs};
-use openai::ModelClient;
 
 pub struct Codr {
-    openai_client: openai::Client,
+    openai_client: openai::OpenAIClient,
     messages: Vec<openai::Message>,
 }
 
@@ -16,7 +15,7 @@ impl Codr {
             .expect("Unable to read system prompt file");
 
         Codr {
-            openai_client: openai::Client::new(base_url, api_key, model),
+            openai_client: openai::OpenAIClient::new(base_url, api_key, model),
             messages: vec![
                 openai::simple_message(system_prompt, openai::Role::System),
             ],
