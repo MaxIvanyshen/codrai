@@ -1,11 +1,9 @@
 [package]
-name = "codr"
+name = "tools"
 version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-openai = { path = "../openai" }
-tools = { path = "../tools" }
 serde = { version = "1.0", features = ["derive"] }
+openai = { path = "../openai" }
 serde_json = "1.0"
-regex = "1.11.1"
