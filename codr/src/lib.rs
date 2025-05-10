@@ -1,6 +1,4 @@
 use std::{env, fs};
-use tools::{ToolBox, Tool};
-use openai::{self, OpenAIClient, Role, Message};
 
 pub struct Codr {
     openai_client: openai::OpenAIClient,
@@ -26,7 +24,7 @@ impl Codr {
         }
     }
 
-    pub async fn message(&mut self, message: String) -> Result<Vec<String>, Box<dyn std::error::Error>> {
+    pub async fn message(&mut self, message: String) -> Result<Vec<Option<String>>, Box<dyn std::error::Error>> {
         self.messages.push(openai::simple_message(message, openai::Role::User));
         let mut results = Vec::new();
         
@@ -48,36 +46,25 @@ impl Codr {
             
             let choice = &response.choices[0];
             
-            // Debug the response
-            println!("Response role: {:?}", choice.message.role);
-            println!("Response has content: {}", !choice.message.content.is_empty());
-            
-            // Check if there are tool calls to process
             let has_tool_calls = choice.message.tool_calls.as_ref()
                 .map(|tc| !tc.is_empty())
                 .unwrap_or(false);
                 
-            println!("Response has tool calls: {}", has_tool_calls);
-            
-            // Add the response to our message history
             self.messages.push(choice.message.clone());
             
-            // Process tool calls if they exist
             if has_tool_calls {
                 let tool_calls = choice.message.tool_calls.as_ref().unwrap();
-                println!("Found {} tool calls to process", tool_calls.len());
                 
-                // Process each tool call
                 for tool_call in tool_calls {
                     println!("Processing tool call: {} (id: {})", 
                              tool_call.function.name, tool_call.id);
                     println!("Arguments: {}", tool_call.function.arguments);
                     
-                    // Parse arguments
                     let args = match serde_json::from_str::<serde_json::Value>(&tool_call.function.arguments) {
                         Ok(args) => args,
                         Err(e) => {
                             eprintln!("Error parsing arguments: {}", e);
+
                             // Add error message as tool result
                             let error_result = serde_json::json!({"error": format!("Failed to parse arguments: {}", e)});
                             self.messages.push(openai::tool_call_result(
@@ -88,7 +75,6 @@ impl Codr {
                         }
                     };
                     
-                    // Run the tool
                     let result = match self.toolbox.run_tool(&tool_call.function.name, args) {
                         Ok(res) => res,
                         Err(e) => {
@@ -97,9 +83,6 @@ impl Codr {
                         }
                     };
                     
-                    println!("Tool result: {}", result);
-                    
-                    // Add tool result to messages
                     self.messages.push(openai::tool_call_result(
                         tool_call.id.clone(), 
                         result.to_string()

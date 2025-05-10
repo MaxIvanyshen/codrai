@@ -18,7 +18,8 @@ pub enum Role {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Message {
     pub role: Role,
-    pub content: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub content: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tool_calls: Option<Vec<ToolCall>>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -69,14 +70,26 @@ impl OpenAIClient {
             .header("Authorization", format!("Bearer {}", self.api_key))
             .json(&body)
             .send()
-            .await?;
+            .await;
+
+        if let Err(e) = response {
+            eprintln!("Request failed: {}", e);
+            return Err(Box::new(Error::new(ErrorKind::Other, "Request failed")));
+        }
+
+        let response = response.unwrap();
 
         if response.status().is_success() {
-            let chat_completion: ChatCompletion = response.json().await?;
-            Ok(chat_completion)
+            let chat_completion = response.json().await;
+            if let Err(e) = chat_completion {
+                eprintln!("Failed to parse response: {}", e);
+                return Err(Box::new(Error::new(ErrorKind::Other, "Failed to parse response")));
+            }
+            Ok(chat_completion.unwrap())
         } else {
             let status = response.status();
             let error_message = response.text().await?;
+            eprintln!("Error: {}", error_message);
             Err(Box::new(Error::new(
                 ErrorKind::Other,
                 format!("Error {}: {}", status, error_message),
@@ -87,7 +100,7 @@ impl OpenAIClient {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Tool {
-    #[serde(rename = "tool")]
+    #[serde(rename = "type")]
     pub tool_type: String,
     pub function: Function, 
 }
@@ -101,6 +114,8 @@ pub struct Function {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ToolCall {
+    #[serde(rename = "type")]
+    pub tool_type: String,
     pub id: String,
     pub function: FunctionCall,
 }
@@ -114,7 +129,7 @@ pub struct FunctionCall {
 pub fn simple_message(message: String, role: Role) -> Message {
     Message {
         role,
-        content: message,
+        content: Some(message),
         tool_calls: None,
         tool_call_id: None,
     }
@@ -123,7 +138,7 @@ pub fn simple_message(message: String, role: Role) -> Message {
 pub fn tool_call_result(id: String, result: String) -> Message {
     Message {
         role: Role::Tool,
-        content: result,
+        content: Some(result),
         tool_calls: None,
         tool_call_id: Some(id),
     }
@@ -199,5 +214,77 @@ mod tests {
                 panic!("Error: {}", e);
             }
         }
+    }
+
+    #[tokio::test]
+    async fn test_unmarshalling() {
+        let json = r#"
+        {
+  "id": "chatcmpl-BVeccwKqpXDrZUzxGnk8HfpEnrmsR",
+  "object": "chat.completion",
+  "created": 1746884018,
+  "model": "gpt-4.1-nano-2025-04-14",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": null,
+        "tool_calls": [
+          {
+            "id": "call_JzXPC0vOC8ixB8HtD16272lC",
+            "type": "function",
+            "function": {
+              "name": "write_file",
+              "arguments": "{\"content\":\"package main\\n\\nimport \\\"fmt\\\"\\n\\nfunc main() {\\n    fmt.Println(\\\"Hello, World!\\\")\\n}\\n\",\"file_path\":\"hello_world.go\"}"
+            }
+          }
+        ],
+        "refusal": null,
+        "annotations": []
+      },
+      "logprobs": null,
+      "finish_reason": "tool_calls"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 786,
+    "completion_tokens": 49,
+    "total_tokens": 835,
+    "prompt_tokens_details": {
+      "cached_tokens": 0,
+      "audio_tokens": 0
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 0,
+      "audio_tokens": 0,
+      "accepted_prediction_tokens": 0,
+      "rejected_prediction_tokens": 0
+    }
+  },
+  "service_tier": "default",
+  "system_fingerprint": "fp_8fd43718b3"
+}"#;
+    
+    let parsed = serde_json::from_str(json);
+    match parsed {
+        Err(e) => {
+            panic!("Error parsing JSON: {}", e);
+        }
+        Ok(parsed) => {
+
+    let parsed: ChatCompletion = parsed;
+    assert_eq!(parsed.choices.len(), 1);
+    assert!(parsed.choices[0].message.tool_calls.is_some());
+    if let Some(tool_calls) = &parsed.choices[0].message.tool_calls {
+        assert_eq!(tool_calls.len(), 1);
+        assert_eq!(tool_calls[0].function.name, "write_file");
+        assert_eq!(tool_calls[0].function.arguments, "{\"content\":\"package main\\n\\nimport \\\"fmt\\\"\\n\\nfunc main() {\\n    fmt.Println(\\\"Hello, World!\\\")\\n}\\n\",\"file_path\":\"hello_world.go\"}");
+    } else {
+        panic!("No tool calls found");
+    }
+        }
+
+    }
     }
 }

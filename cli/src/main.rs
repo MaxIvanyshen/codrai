@@ -21,7 +21,7 @@ async fn main() {
     match codr.message(args.prompt).await {
         Ok(response) => {
             for line in response {
-                skin.print_text(&line);
+                skin.print_text(&line.unwrap());
             }
         }
         Err(e) => {
