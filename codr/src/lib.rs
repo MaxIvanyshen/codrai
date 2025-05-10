@@ -1,9 +1,10 @@
 use std::{env, fs};
+use tools::tool_box::ToolBox as ToolBox;
 
 pub struct Codr {
     openai_client: openai::OpenAIClient,
     messages: Vec<openai::Message>,
-    toolbox: tools::ToolBox,
+    toolbox: ToolBox,
 }
 
 impl Codr {
@@ -20,7 +21,7 @@ impl Codr {
             messages: vec![
                 openai::simple_message(system_prompt, openai::Role::System),
             ],
-            toolbox: tools::ToolBox::new(),
+            toolbox: ToolBox::new(),
         }
     }
 
