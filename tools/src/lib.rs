@@ -176,29 +176,73 @@ fn new_create_folder_tool() -> Tool {
 fn new_get_folder_files_tool() -> Tool {
     Tool {
         name: "get_folder_files".to_string(),
-        description: "Gets a list of files in a folder".to_string(),
+        description: "Gets a list of files and folders in a directory, including nested contents".to_string(),
         parameters: serde_json::json!({
             "type": "object",
             "properties": {
                 "folder_path": {
                     "type": "string",
-                    "description": "Path to the folder to list files from"
+                    "description": "Path to the folder to list files and subfolders from"
+                },
+                "recursive": {
+                    "type": "boolean",
+                    "description": "Whether to recursively list files in subfolders (default: true)",
+                    "default": true
                 }
             },
             "required": ["folder_path"]
         }),
         runner: |args| {
             let folder_path = args["folder_path"].as_str().ok_or("folder_path is required")?;
+            let recursive = args.get("recursive").and_then(|v| v.as_bool()).unwrap_or(true);
             
-            let entries = fs::read_dir(folder_path)?
-                .filter_map(|entry| {
-                    entry.ok().and_then(|e| {
-                        e.file_name().to_str().map(String::from)
-                    })
-                })
-                .collect::<Vec<_>>();
+            fn scan_directory(path: &str, recursive: bool) -> Result<serde_json::Value, Box<dyn std::error::Error>> {
+                let mut files = Vec::new();
+                let mut folders = Vec::new();
                 
-            Ok(serde_json::json!({"files": entries}))
+                for entry in fs::read_dir(path)? {
+                    if let Ok(entry) = entry {
+                        let path_buf = entry.path();
+                        let file_name = path_buf.file_name()
+                            .and_then(|n| n.to_str())
+                            .map(String::from)
+                            .ok_or("Invalid filename")?;
+                        
+                        let file_type = entry.file_type()?;
+                        
+                        if file_type.is_dir() {
+                            if recursive {
+                                let subfolder_path = path_buf.to_str()
+                                    .ok_or("Invalid path")?;
+                                let subfolder_contents = scan_directory(subfolder_path, recursive)?;
+                                folders.push(serde_json::json!({
+                                    "name": file_name,
+                                    "path": subfolder_path,
+                                    "contents": subfolder_contents
+                                }));
+                            } else {
+                                folders.push(serde_json::json!({
+                                    "name": file_name,
+                                    "path": path_buf.to_str().ok_or("Invalid path")?
+                                }));
+                            }
+                        } else if file_type.is_file() {
+                            files.push(serde_json::json!({
+                                "name": file_name,
+                                "path": path_buf.to_str().ok_or("Invalid path")?
+                            }));
+                        }
+                    }
+                }
+                
+                Ok(serde_json::json!({
+                    "files": files,
+                    "folders": folders
+                }))
+            }
+            
+            let result = scan_directory(folder_path, recursive)?;
+            Ok(result)
         },
     }
 }
@@ -277,20 +321,64 @@ mod tests {
 
     #[test]
     fn test_get_folder_files_tool() {
-        let folder_path = "./test_folder";
-        fs::create_dir_all(folder_path).unwrap();
-
-        let file_path = format!("{}/test_file.txt", folder_path);
-        fs::write(&file_path, "Hello, world!").unwrap();
-
+        let base_folder = "./test_folder_structure";
+        let subfolder = format!("{}/subfolder", base_folder);
+        
+        // Clean up any existing test folders first (in case previous test failed)
+        let _ = fs::remove_dir_all(base_folder);
+        
+        fs::create_dir_all(&base_folder).unwrap();
+        fs::create_dir_all(&subfolder).unwrap();
+        
+        // Create test files
+        fs::write(format!("{}/root_file.txt", base_folder), "Root file content").unwrap();
+        fs::write(format!("{}/subfolder/nested_file.txt", base_folder), "Nested file content").unwrap();
+        
+        // Test recursive listing (default)
         let args = serde_json::json!({
-            "folder_path": folder_path
+            "folder_path": base_folder
         });
-
+        
         let result = new_get_folder_files_tool().run(args).unwrap();
-        assert_eq!(result["files"][0], "test_file.txt");
-
-        fs::remove_file(&file_path).unwrap();
-        fs::remove_dir_all(folder_path).unwrap();
+        
+        // Verify structure
+        assert!(result.is_object());
+        assert!(result.get("files").is_some());
+        assert!(result.get("folders").is_some());
+        
+        // Verify root files
+        let files = result["files"].as_array().unwrap();
+        assert_eq!(files.len(), 1);
+        assert_eq!(files[0]["name"], "root_file.txt");
+        
+        // Verify folders
+        let folders = result["folders"].as_array().unwrap();
+        assert_eq!(folders.len(), 1);
+        assert_eq!(folders[0]["name"], "subfolder");
+        
+        // Verify subfolder contents
+        let subfolder_contents = &folders[0]["contents"];
+        assert!(subfolder_contents.is_object());
+        let subfolder_files = subfolder_contents["files"].as_array().unwrap();
+        assert_eq!(subfolder_files.len(), 1);
+        assert_eq!(subfolder_files[0]["name"], "nested_file.txt");
+        
+        // Test non-recursive listing
+        let args_non_recursive = serde_json::json!({
+            "folder_path": base_folder,
+            "recursive": false
+        });
+        
+        let result_non_recursive = new_get_folder_files_tool().run(args_non_recursive).unwrap();
+        
+        // Verify structure
+        let folders_non_recursive = result_non_recursive["folders"].as_array().unwrap();
+        assert_eq!(folders_non_recursive.len(), 1);
+        assert_eq!(folders_non_recursive[0]["name"], "subfolder");
+        
+        // Verify that non-recursive doesn't include contents
+        assert!(folders_non_recursive[0].get("contents").is_none());
+        
+        fs::remove_dir_all(base_folder).unwrap();
     }
 }
