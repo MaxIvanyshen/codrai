@@ -1,4 +1,4 @@
-use std::fs;
+use std::{fs, io::Write};
 use openai::Tool as OpenAITool;
 
 pub struct ToolBox {
@@ -10,8 +10,9 @@ impl ToolBox {
         ToolBox {
             tools: vec![
                 Box::new(new_write_file_tool()),
-                Box::new(new_edit_file_tool()),
+                Box::new(new_replace_file_tool()),
                 Box::new(new_read_file_tool()),
+                Box::new(new_append_to_file_tool()),
                 Box::new(new_create_folder_tool()),
                 Box::new(new_get_folder_files_tool()),
             ],
@@ -101,9 +102,9 @@ fn new_write_file_tool() -> Tool {
     }
 }
 
-fn new_edit_file_tool() -> Tool {
+fn new_replace_file_tool() -> Tool {
     Tool {
-        name: "edit_file".to_string(),
+        name: "replace_file_content".to_string(),
         description: "Replaces content of a file with a new one".to_string(),
         parameters: serde_json::json!({
             "type": "object",
@@ -147,6 +148,38 @@ fn new_read_file_tool() -> Tool {
             let file_path = args["file_path"].as_str().ok_or("file_path is required")?;
             let content = fs::read_to_string(file_path)?;
             Ok(serde_json::json!({"content": content}))
+        },
+    }
+}
+
+fn new_append_to_file_tool() -> Tool {
+    Tool {
+        name: "append_to_file".to_string(),
+        description: "Appends content to a file".to_string(),
+        parameters: serde_json::json!({
+            "type": "object",
+            "properties": {
+                "file_path": {
+                    "type": "string",
+                    "description": "Path to the file to append to"
+                },
+                "content": {
+                    "type": "string",
+                    "description": "Content to append to the file"
+                }
+            },
+            "required": ["file_path", "content"]
+        }),
+        runner: |args| {
+            let file_path = args["file_path"].as_str().ok_or("file_path is required")?;
+            let content = args["content"].as_str().ok_or("content is required")?;
+
+            let mut file = fs::OpenOptions::new()
+                .append(true)
+                .open(file_path)?;
+                
+            file.write(content.as_bytes())?;
+            Ok(serde_json::json!({"status": "success"}))
         },
     }
 }
@@ -266,7 +299,7 @@ mod tests {
             "file_path": "./test.txt",
             "content": "Hello, Rust!"
         });
-        let result = new_edit_file_tool().run(edit_args).unwrap();
+        let result = new_replace_file_tool().run(edit_args).unwrap();
         assert_eq!(result["status"], "success");
 
         let read_result = new_read_file_tool().run(serde_json::json!({
