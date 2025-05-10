@@ -5,6 +5,14 @@ pub struct ToolBox {
     tools: Vec<Box<Tool>>,
 }
 
+fn status_success() -> Result<serde_json::Value, Box<dyn std::error::Error>> {
+    Ok(serde_json::json!({"status": "success"}))
+}
+
+fn err(message: &str) -> Result<serde_json::Value, Box<dyn std::error::Error>> {
+    Ok(serde_json::json!({"status": "error", "message": message}))
+}
+
 impl ToolBox {
     pub fn new() -> Self {
         ToolBox {
@@ -92,12 +100,11 @@ fn new_write_file_tool() -> Tool {
             "required": ["file_path", "content"]
         }),
         runner: |args| {
-            println!("Using write file tool"); 
             let file_path = args["file_path"].as_str().ok_or("file_path is required")?;
             let content = args["content"].as_str().ok_or("content is required")?;
 
             fs::write(file_path, content)?;
-            Ok(serde_json::json!({"status": "success"}))
+            status_success()
         },
     }
 }
@@ -125,7 +132,7 @@ fn new_replace_file_tool() -> Tool {
             let content = args["content"].as_str().ok_or("content is required")?;
 
             fs::write(file_path, content)?;
-            Ok(serde_json::json!({"status": "success"}))
+            status_success()
         },
     }
 }
@@ -179,7 +186,7 @@ fn new_append_to_file_tool() -> Tool {
                 .open(file_path)?;
                 
             file.write(content.as_bytes())?;
-            Ok(serde_json::json!({"status": "success"}))
+            status_success()
         },
     }
 }
@@ -201,7 +208,7 @@ fn new_create_folder_tool() -> Tool {
         runner: |args| {
             let folder_path = args["folder_path"].as_str().ok_or("folder_path is required")?;
             fs::create_dir_all(folder_path)?;
-            Ok(serde_json::json!({"status": "success"}))
+            status_success()
         },
     }
 }
