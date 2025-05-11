@@ -31,7 +31,21 @@ Codr AI is a robust Rust project that leverages artificial intelligence to assis
 
 ## Getting Started
 
-To get started, clone the repository, install dependencies, and configure your API keys for AI services. Detailed setup instructions are provided in the documentation.
+To get started, clone the repository, install dependencies, and configure your environment variables:
+
+- **CODR_BASE_URL:** The base URL for your OpenAI-compatible API.
+- **CODR_API_KEY:** Your API key for authenticating requests.
+- **CODR_MODEL:** The name of the language model supporting tool calls.
+
+Set these environment variables in your shell, for example:
+
+```bash
+export CODR_BASE_URL="https://api.openai.com/v1"
+export CODR_MODEL="gpt-4"
+export CODR_API_KEY="your-api-key-here"
+```
+
+Ensure these are correctly configured to allow the program to access the AI services.
 
 ## Contributing
 
