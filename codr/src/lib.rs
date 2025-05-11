@@ -47,21 +47,22 @@ impl Codr {
             
             let choice = &response.choices[0];
             
-            let has_tool_calls = choice.message.tool_calls.as_ref()
+            let has_tool_calls = choice.message.clone().unwrap().tool_calls.as_ref()
                 .map(|tc| !tc.is_empty())
                 .unwrap_or(false);
                 
-            self.messages.push(choice.message.clone());
+            self.messages.push(choice.message.clone().unwrap());
             
             if has_tool_calls {
-                let tool_calls = choice.message.tool_calls.as_ref().unwrap();
+                let msg = choice.message.clone().unwrap();
+                let tool_calls = msg.tool_calls.as_ref().unwrap();
                 
                 for tool_call in tool_calls {
-                    println!("Processing tool call: {} (id: {})", 
-                             tool_call.function.name, tool_call.id);
-                    println!("Arguments: {}", tool_call.function.arguments);
+                    println!("Processing tool call: {}", 
+                             tool_call.function.name.clone().unwrap());
+                    println!("Arguments: {}", tool_call.function.arguments.clone());
                     
-                    let args = match serde_json::from_str::<serde_json::Value>(&tool_call.function.arguments) {
+                    let args = match serde_json::from_str::<serde_json::Value>(&tool_call.function.arguments.clone()) {
                         Ok(args) => args,
                         Err(e) => {
                             eprintln!("Error parsing arguments: {}", e);
@@ -69,14 +70,14 @@ impl Codr {
                             // Add error message as tool result
                             let error_result = serde_json::json!({"error": format!("Failed to parse arguments: {}", e)});
                             self.messages.push(openai::tool_call_result(
-                                tool_call.id.clone(), 
+                                tool_call.id.clone().unwrap(), 
                                 error_result.to_string()
                             ));
                             continue;
                         }
                     };
                     
-                    let result = match self.toolbox.run_tool(&tool_call.function.name, args) {
+                    let result = match self.toolbox.run_tool(&tool_call.function.name.clone().unwrap(), args) {
                         Ok(res) => res,
                         Err(e) => {
                             eprintln!("Error running tool: {}", e);
@@ -85,7 +86,7 @@ impl Codr {
                     };
                     
                     self.messages.push(openai::tool_call_result(
-                        tool_call.id.clone(), 
+                        tool_call.id.clone().unwrap(), 
                         result.to_string()
                     ));
                 }
@@ -94,7 +95,7 @@ impl Codr {
                 continue;
             } else {
                 // If there are no tool calls, add the content to results
-                results.push(choice.message.content.clone());
+                results.push(choice.message.clone().unwrap().content.clone());
                 break;
             }
         }

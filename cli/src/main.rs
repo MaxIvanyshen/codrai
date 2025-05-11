@@ -8,6 +8,9 @@ use clap::Parser;
 struct Args {
     #[arg(short, long, default_value = "")]
     prompt: String,
+
+    #[arg(short, long, default_value = "false")]
+    stream: bool,
 }
 
 #[tokio::main]
@@ -36,14 +39,19 @@ async fn main() {
                 break;
             }
         }
-        match codr.message(prompt.to_string()).await {
-            Ok(response) => {
-                for line in response {
-                    skin.print_text(&line.unwrap());
+        if args.stream {
+            skin.print_text("Streaming is not supported yet.");
+            break;
+        } else {
+            match codr.message(prompt.to_string()).await {
+                Ok(response) => {
+                    for line in response {
+                        skin.print_text(&line.unwrap());
+                    }
                 }
-            }
-            Err(e) => {
-                eprintln!("Error while processing your input: {}", e);
+                Err(e) => {
+                    eprintln!("Error while processing your input: {}", e);
+                }
             }
         }
 
