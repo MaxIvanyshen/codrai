@@ -13,7 +13,7 @@ impl Codr {
         let api_key = env::var("CODR_API_KEY").expect("CODR_API_KEY must be set");
         let model = env::var("CODR_MODEL").expect("CODR_MODEL must be set");
 
-        let system_prompt = fs::read_to_string("./system_prompt.md")
+        let system_prompt = fs::read_to_string("system_prompt.md")
             .expect("Unable to read system prompt file");
 
         let messages = vec![

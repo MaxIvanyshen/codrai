@@ -5,10 +5,12 @@ use clap::Parser;
 
 #[derive(Parser, Debug)]
 struct Args {
+    /// The prompt to send to Codr
     #[arg(short, long, default_value = "")]
     prompt: String,
 
-    #[arg(short, long, default_value = "false")]
+    /// Whether to stream the response. Default is true.
+    #[arg(short, long, default_value = "true")]
     stream: bool,
 }
 
@@ -27,22 +29,35 @@ async fn main() {
     code_skin.code_block.set_bg(termimad::rgb(40, 44, 52));
     code_skin.code_block.set_fg(termimad::rgb(171, 178, 191));
     
+    // Create a bold yellow skin for welcome messages
+    let mut welcome_skin = MadSkin::default();
+    welcome_skin.bold.set_fg(termimad::crossterm::style::Color::Red);
+    
     let mut prompt = String::new();
 
+    welcome_skin.print_text("**------------------------------------------------------------------------**");
     if args.prompt.is_empty() {
-        text_skin.print_text("Welcome to Codr! Type 'exit' to quit.");
+        welcome_skin.print_text("**WELCOME TO CODR!**");
+        welcome_skin.print_text("**Type 'exit' to quit.**");
     } else {
         prompt = args.prompt.clone();
     }
 
     loop {
         if prompt.is_empty() {
-            print!("Ask Codr (type 'exit' to quit): ");
+            let mut msg = "**Ask Codr:** ";
+            if !args.prompt.is_empty() {
+                msg = "**Ask Codr (type 'exit' to quit):** ";
+            }
+            welcome_skin.print_text("\n");
+            welcome_skin.print_inline(msg);
             io::stdout().flush().unwrap();
 
             std::io::stdin().read_line(&mut prompt).unwrap();
             prompt = prompt.trim().to_string();
             if prompt == "exit" {
+                welcome_skin.print_text("**SEE YOU AROUND!**");
+                welcome_skin.print_text("**------------------------------------------------------------------------**");
                 break;
             }
         }
