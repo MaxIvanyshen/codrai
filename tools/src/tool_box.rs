@@ -7,6 +7,7 @@ use crate::tool_box::tools::{Tool, file_tools::{
     new_read_file_tool, new_replace_file_tool, new_write_file_tool,
 }};
 
+#[derive(Debug, Clone)]
 pub struct ToolBox {
     tools: Vec<Box<Tool>>,
 }

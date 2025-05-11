@@ -2,6 +2,7 @@ pub mod file_tools;
 
 use openai::Tool as OpenAITool;
 
+#[derive(Debug, Clone)]
 pub struct Tool {
     name: String,
     description: String,

@@ -1,7 +1,6 @@
 use reqwest;
 use serde::{Deserialize, Serialize};
 use serde_json;
-use tokio::task;
 use std::io::{Error, ErrorKind};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -48,7 +47,7 @@ pub struct StreamChunk {
     pub choices: Vec<Choice>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct StreamChannelChunk {
     pub finished: bool,
     pub final_content: Option<String>,
@@ -56,6 +55,7 @@ pub struct StreamChannelChunk {
 }
 
 
+#[derive(Debug, Clone)]
 pub struct OpenAIClient {
     http_client: reqwest::Client,
     api_key: String,
@@ -117,7 +117,7 @@ impl OpenAIClient {
         }
     }
 
-    async fn chat_completion_stream(&self, messages: &Vec<Message>, tools: Option<Box<Vec<Tool>>>) -> tokio::sync::mpsc::Receiver<StreamChannelChunk> {
+    pub async fn chat_completion_stream(&self, messages: &Vec<Message>, tools: Option<Box<Vec<Tool>>>) -> tokio::sync::mpsc::Receiver<StreamChannelChunk> {
         let url = format!("{}/chat/completions", self.base_url);
         
         let body = serde_json::json!({
@@ -140,10 +140,10 @@ impl OpenAIClient {
         let (tx, rx) = tokio::sync::mpsc::channel::<StreamChannelChunk>(1);
 
         if response.status() != reqwest::StatusCode::OK {
-            panic!("Error: {}", response.status());
+            panic!("Error ({}): {}", response.status(), response.text().await.unwrap());
         }
 
-        task::spawn(async move {
+        tokio::spawn(async move {
             let mut tool_call: Option<ToolCall> = None;
             loop {
                 let chunk = response.chunk().await;
@@ -186,7 +186,7 @@ impl OpenAIClient {
                                                             final_content: None,
                                                             choices: vec![Choice {
                                                                 delta: Some(Message {
-                                                                    role: None,
+                                                                    role: Some(Role::Assistant),
                                                                     content: None,
                                                                     tool_calls: Some(vec![tool_call.clone().unwrap()]),
                                                                     tool_call_id: None,
@@ -224,10 +224,7 @@ impl OpenAIClient {
                                             }).await.unwrap();
                                         }
                                     },
-                                    Err(e) => {
-                                        eprintln!("Failed to parse chunk: {}", e);
-                                        eprintln!("Problematic JSON: {}", json_str);
-                                    }
+                                    Err(_) => {}
                                 }
                             }
                         }

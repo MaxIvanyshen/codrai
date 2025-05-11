@@ -8,4 +8,5 @@ codr = { path = "../codr" }
 tokio = { version = "1", features = ["full"] }
 termimad = "0.20"
 clap = { version = "4.5.37", features = ["derive"] }
+regex = "1.5.4"
 
