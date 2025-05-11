@@ -1,4 +1,4 @@
-# Rust-Based AI Coding Agent
+# Codr AI: Rust-Based AI Coding Agent
 
 An advanced AI-powered coding assistant developed in Rust, designed to enhance software development workflows through intelligent code generation, analysis, and automation.
 
