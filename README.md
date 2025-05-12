@@ -29,7 +29,7 @@ Codr AI is a robust Rust project that leverages artificial intelligence to assis
 - Educational aid for learning programming concepts.
 - Enhance existing IDEs or code editors with AI features.
 
-## Getting Started
+## Installation
 
 To get started, clone the repository, install dependencies, and configure your environment variables:
 
@@ -46,6 +46,12 @@ export CODR_API_KEY="your-api-key-here"
 ```
 
 Ensure these are correctly configured to allow the program to access the AI services.
+
+To install Codr AI run the following command:
+
+```bash
+make install
+```
 
 ## Contributing
 
