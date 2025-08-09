@@ -61,6 +61,8 @@ impl Codr {
                 let tool_calls = msg.tool_calls.as_ref().unwrap();
                 
                 for tool_call in tool_calls {
+                    println!("tool call id: {}, tool type: {:?}", 
+                        tool_call.id.clone().unwrap(), tool_call.tool_type);
                     println!("Processing tool call: {}", 
                              tool_call.function.name.clone().unwrap());
                     println!("Arguments: {}", tool_call.function.arguments.clone());
@@ -81,7 +83,10 @@ impl Codr {
                     };
                     
                     let result = match self.toolbox.run_tool(&tool_call.function.name.clone().unwrap(), args) {
-                        Ok(res) => res,
+                        Ok(res) => {
+                            println!("Tool result: {}", res);
+                            res
+                        },
                         Err(e) => {
                             eprintln!("Error running tool: {}", e);
                             serde_json::json!({"error": e.to_string()})
@@ -147,6 +152,9 @@ impl Codr {
                                 curr_msg.push(message.clone());
 
                                 for tool_call in tool_calls {
+                                    if tool_call.function.name.is_none() {
+                                        continue;
+                                    }
                                     println!("Processing tool call: {}", 
                                         tool_call.function.name.clone().unwrap());
                                     println!("Arguments: {}", tool_call.function.arguments.clone());

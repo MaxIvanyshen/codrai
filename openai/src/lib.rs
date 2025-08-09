@@ -174,6 +174,7 @@ impl OpenAIClient {
                                                         let final_content = all_content.clone();
                                                         tx.send(StreamChannelChunk {
                                                             finished: true,
+
                                                             final_content: Some(final_content),
                                                             choices: vec![],
                                                         }).await.unwrap();
