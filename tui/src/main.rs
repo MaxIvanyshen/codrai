@@ -5,6 +5,7 @@ mod ui;
 use std::{error::Error, io};
 use app::App;
 use ui::ui;
+use openai;
 
 use ratatui::{
     backend::{Backend, CrosstermBackend},
@@ -24,8 +25,10 @@ fn main() -> Result<(), Box<dyn Error>> {
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
 
+    let mut text_area = tui_textarea::TextArea::default();
     // Create app and run it
-    let mut app = App::new();
+    let mut app = App::new(&mut text_area);
+    app.messages.push(openai::simple_message("hello".to_owned(), openai::Role::User));
     let res = run_app(&mut terminal, &mut app);
 
     if let Err(e) = res {
@@ -59,7 +62,6 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> io::Result<
                     KeyCode::Char('n') => {
                         // Create a new session
                         app.title = "New Codr Session".to_string();
-                        app.input.clear();
                         app.mode = app::AppMode::Normal;
                         app.is_processing = false;
                     }
@@ -69,31 +71,19 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> io::Result<
 
             match app.mode {
                 app::AppMode::Normal => {
-                    match key.code {
-                        KeyCode::Enter => {
-                            if app.mode == app::AppMode::Normal {
-                                // Start processing the input
-                                app.mode = app::AppMode::Processing;
-                                app.is_processing = true;
-                                app.input.clear();
-                            } else {
-                                app.mode = app::AppMode::Normal;
-                            }
+                    if key.code == KeyCode::Enter {
+                        if key.modifiers.contains(KeyModifiers::ALT) {
+                            app.input.insert_newline();
+                            continue;
+                        } else {
+                            app.is_processing = true;
+                            app.mode = app::AppMode::Processing;
+                            continue
                         }
-                        KeyCode::Backspace => {
-                            // Remove last character from input
-                            app.input.pop();
-                        }
-                        KeyCode::Char(c) => {
-                            // Append character to input
-                            app.input.push(c);
-                        }
-                        _ => {}
                     }
-                }
-                app::AppMode::Processing => {
-                    continue; // Ignore other keys in processing mode
-                }
+                    app.input.input(key);
+                },
+                _ => {}
             }
         } else {
             // Ignore non-key events (e.g., mouse events) to prevent interference

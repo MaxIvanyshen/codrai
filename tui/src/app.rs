@@ -1,13 +1,14 @@
 use crate::color::{ColorTheme, get_default_theme};
+use tui_textarea::TextArea;
 
-pub struct App {
+pub struct App<'a> {
     pub title: String,
     pub is_processing: bool,
-    pub input: String,
     pub color_theme: Box<dyn ColorTheme>,
     pub mode: AppMode,
+    pub input: &'a mut TextArea<'a>,
     codr: codr::Codr,
-    pub messages: Vec<openai::Message>
+    pub messages: Vec<openai::Message>,
 }
 
 pub enum AppMode {
@@ -30,12 +31,12 @@ impl AppMode {
     }
 }
 
-impl App {
-    pub fn new() -> App {
+impl<'a> App<'a> {
+    pub fn new(input: &'a mut TextArea<'a>) -> App<'a> {
         App {
             title: "New Codr Session".to_string(),
             is_processing: false,
-            input: String::new(),
+            input,
             color_theme: get_default_theme(),
             mode: AppMode::Normal,
             codr: codr::Codr::new(),
