@@ -29,6 +29,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     // Create app and run it
     let mut app = App::new(&mut text_area);
     app.messages.push(openai::simple_message("hello".to_owned(), openai::Role::User));
+    app.messages.push(openai::simple_message("hello".to_owned(), openai::Role::Assistant));
     let res = run_app(&mut terminal, &mut app);
 
     if let Err(e) = res {
@@ -63,6 +64,7 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> io::Result<
                         // Create a new session
                         app.title = "New Codr Session".to_string();
                         app.mode = app::AppMode::Normal;
+                        app.clear_input();
                         app.is_processing = false;
                     }
                     _ => {}
@@ -76,8 +78,10 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> io::Result<
                             app.input.insert_newline();
                             continue;
                         } else {
+                            app.clear_input();
+                            let msg = app.input.lines().join("\n");
+                            app.messages.push(openai::simple_message(msg, openai::Role::User));
                             app.is_processing = true;
-                            app.mode = app::AppMode::Processing;
                             continue
                         }
                     }

@@ -1,6 +1,6 @@
 use ratatui::{
-    crossterm, layout::{Constraint, Direction, Layout, Position, Rect},
-    style::{Color, Style, Stylize},
+    layout::{Constraint, Direction, Layout, Rect},
+    style::{Color, Style, Styled, Stylize},
     text::{Line, Span, Text},
     widgets::{Block, BorderType, Borders, Clear, List, ListItem, Paragraph, Wrap},
     Frame,
@@ -75,7 +75,7 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
         .constraints([
             Constraint::Percentage(3), // Title area
             Constraint::Percentage(87), // Main content
-            Constraint::Percentage(10), // Input area (increased height for multiline)
+            Constraint::Percentage(10), // Input area
         ])
         .split(main_chunk);
 
@@ -85,26 +85,90 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
             .bold()
             .fg(Color::from_u32(*app.color_theme.get_color(ColorType::Accent).unwrap())),
     ));
-
     frame.render_widget(title, main_layout[0]);
 
+    create_input_area(app, frame, &main_layout[2]);
+
+    let mut y_offset = 1;
+    let msg_padding = 1; // Padding between messages
+
+    for (i, msg) in app.messages.iter().enumerate() {
+        let mut border_color = Color::from_u32(*app.color_theme.get_color(ColorType::Warning).unwrap());
+        if *msg.role.as_ref().unwrap() == openai::Role::Assistant {
+            border_color = Color::from_u32(*app.color_theme.get_color(ColorType::Danger).unwrap());
+        }
+        let content = msg.content.clone().unwrap_or_else(|| "".to_string());
+        let lines: Vec<&str> = content.split('\n').collect();
+        let line_count = lines.len() as u16; // Number of lines
+        let min_height = 2; // Minimum height for visibility
+        let max_lines_per_message = 5; // Cap the number of lines to display
+        let height = (line_count.min(max_lines_per_message)).max(min_height); // Dynamic height with caps
+
+        let mut msg_bg_style = Style::default().bg(Color::from_u32(*app.color_theme.get_color(ColorType::Primary).unwrap()));
+        if *msg.role.as_ref().unwrap() == openai::Role::User {
+            msg_bg_style = Style::default(); // No background for user messages
+        }
+
+        let message_block = Block::default()
+            .style(msg_bg_style);
+
+        let text = Paragraph::new(Text::from(content))
+            .wrap(Wrap { trim: true })
+            .block(message_block);
+        let area = Rect {
+            x: main_layout[1].x,
+            y: main_layout[1].y + y_offset,
+            width: main_layout[1].width,
+            height, // Use calculated height based on line count
+        };
+
+        let msg_chunks = Layout::default()
+            .direction(Direction::Horizontal)
+            .constraints([
+                Constraint::Percentage(2),
+                Constraint::Percentage(98),
+            ])
+            .split(area);
+
+        let border_chunk = Layout::default()
+            .direction(Direction::Horizontal)
+            .constraints([
+                Constraint::Percentage(50),
+                Constraint::Percentage(50),
+            ])
+            .split(msg_chunks[0]);
+
+        frame.render_widget(
+            Block::default()
+                .style(Style::default().bg(border_color)),
+            border_chunk[0],
+        );
+        frame.render_widget(
+            Block::default()
+            .style(msg_bg_style),
+            border_chunk[1],
+        );
+        frame.render_widget(text, msg_chunks[1]);
+
+        y_offset += height + msg_padding; // Update offset for the next message
+    }
+}
+
+fn create_input_area(app: &mut App, frame: &mut Frame, area: &Rect) {
     let input_chunks = Layout::default()
         .direction(Direction::Horizontal)
         .constraints([
             Constraint::Percentage(2), // Input area border
             Constraint::Percentage(98), // Input content area
         ])
-        .split(main_layout[2]);
+        .split(*area);
 
-    // Input area
     let input_bg = Color::from_u32(*app.color_theme.get_color(ColorType::Primary).unwrap());
+
     let input_block = Block::default()
-        //.borders(Borders::LEFT)
-        //.border_type(BorderType::Thick)
-        //.border_style(Style::default().fg(Color::from_u32(*app.color_theme.get_color(ColorType::Warning).unwrap())))
         .style(Style::default().bg(input_bg));
 
-    app.input.set_block(input_block.clone()); // Share the block with the input area
+    app.input.set_block(input_block.clone()); 
     
     frame.render_widget(
         Block::default()
@@ -114,23 +178,8 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
         input_chunks[0]
     );
 
-    // Render the TextArea in the right chunk
     let input_area = input_chunks[1];
     frame.render_widget(&app.input.clone(), input_area);
-
-    // TODO: make a list of blocks and render them
-    for msg in &app.messages {
-        let msg_text = Text::from(Span::styled(
-            msg.content.clone().unwrap(),
-            Style::default().fg(Color::White),
-        ));
-
-        let msg_paragraph = Paragraph::new(msg_text)
-            .wrap(Wrap { trim: true })
-            .block(Block::default().borders(Borders::NONE));
-
-        frame.render_widget(msg_paragraph, main_layout[1]);
-    }
 }
 
 /// Helper function to create a centered rect
@@ -153,3 +202,4 @@ fn centered_rect(percent_x: u16, percent_y: u16, r: Rect) -> Rect {
         ])
         .split(popup_layout[1])[1]
 }
+

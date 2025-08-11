@@ -15,6 +15,12 @@ pub enum Role {
     Tool
 }
 
+impl PartialEq for Role {
+    fn eq(&self, other: &Self) -> bool {
+        matches!((self, other), (Role::System, Role::System) | (Role::User, Role::User) | (Role::Assistant, Role::Assistant) | (Role::Tool, Role::Tool))
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Message {
     #[serde(rename = "role")]
